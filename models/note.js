@@ -15,6 +15,7 @@ const NoteSchema = mongoose.Schema({
         ref: 'User',
         required: true
     }
+   
 },{timestamps: true })
 
 module.exports = mongoose.model('Note',NoteSchema)

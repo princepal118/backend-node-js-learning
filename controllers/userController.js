@@ -3,12 +3,9 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const SECRET_KEY = "NOTESAPI";
 const signup = async (req, res) => {
-  //Existing user check.
-  //Hashed Password.
-  //User Creation.
-  //Token Generation.
 
   const { username, email, password } = req.body;
+  // console.log('req.body :>> ', req.body);
   try {
     const exixtingUser = await userModel.findOne({ email: email }); //this function will connect with the database and find the user email existes or not.
     if (exixtingUser) {
@@ -27,10 +24,10 @@ const signup = async (req, res) => {
     // pass the id which is created by the mongo db for the token is userId
     const token = jwt.sign({ email: result.email, id: result._id }, SECRET_KEY);
 
-    console.log('token :>> ', token);
+    console.log('token in sign up case :>> ', token);
     res.status(201).json({ user: result, token: token });
   } catch (error) {
-    console.log("error", error);
+    console.log("error in sign Up ", error);
     res.status(500).json({ message: "Something went wrong" });
   }
 };
@@ -54,7 +51,7 @@ const signin = async (req, res) => {
     );
     res.status(201).json({ user: exixtingUser, token: token });
   } catch (error) {
-    console.log("error i te signup case", error);
+    console.log("error in the signup case", error);
     res.status(500).json({ message: "Something went wrong" });
   }
 };

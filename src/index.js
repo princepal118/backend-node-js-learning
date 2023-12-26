@@ -1,11 +1,12 @@
+require('dotenv').config(); 
 const express = require("express");
 const userRoutes = require("./router/userRoutes");
 const noteRoutes = require("./router/noteRoutes");
 const cors = require('cors')
 
+console.log('process.env :>>.AWS_ACCESS_KEY_ID ', process.env.AWS_ACCESS_KEY_ID)
 // const quote = require("./quote.json").quotes;
 //user|| admin, related endpoint will be in new file
-
 const mongoose = require("mongoose");
 const app = express();
 app.use(express.json()); // it converts the request body into JSON and parse into the JSON.
@@ -16,18 +17,11 @@ app.use((req, res, next) => {
   next();
 });
 
-
 app.use("/note", noteRoutes);
-// app.get("/", (req, res) => {
-//   res.status(200).json(quote);
-// });
-// app.get("/quote", (req, res) => {
-//   res.send("quote");
-// });
 
 mongoose
   .connect(
-    "mongodb+srv://admin:PRince%40%231010@cluster1.vr6apo9.mongodb.net/?retryWrites=true&w=majority"
+   process.env.MONGODB_URI
   )
   .then(() => {
     app.listen(5000, () => {

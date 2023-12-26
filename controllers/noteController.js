@@ -1,9 +1,8 @@
 const noteModel = require("../models/note");
 const multer = require("multer");
-const AWS = require("aws-sdk");
-const fs = require("fs");
-const path = require("path");
-// app.use(express.static("./public"));
+const multerS3 = require("multer-s3");
+const { S3Client } = require("@aws-sdk/client-s3");
+const noteImageModel = require("../models/note-url");
 
 const createNote = async (req, res) => {
   const { title, description } = req.body;
@@ -52,7 +51,7 @@ const deleteNote = async (req, res) => {
     // in the deletion request we use the status code of 202
     res.status(202).json(deletedNote);
   } catch (err) {
-    console.log("error :>> ", error);
+    console.log("error :>> ", err);
     res.status(500).json({ message: "Something went wrong" });
   }
 };
@@ -71,67 +70,50 @@ const getNotes = async (req, res) => {
 };
 
 const uploadImage = async (req, res) => {
-  
+  try {
+    const s3 = new S3Client({
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+      region: process.env.S3_BUCKET_REGION,
+    });
+    // The optional contentType option can be used to set Content/mime type of the file. By default the content type is set to application/octet-stream. If you want multer-s3 to automatically find the content-type of the file, use the multerS3.AUTO_CONTENT_TYPE constant. Here is an example that will detect the content type of the file being uploaded.
+    const s3Storage = multerS3({
+      s3: s3,
+      bucket: "s3-nodejs-12345",
+      acl: "public-read",
+      metadata: (req, file, cb) => {
+        cb(null, { fieldname: file.fieldname });
+      },
+      cacheControl: "max-age=31536000",
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      storageClass: "REDUCED_REDUNDANCY",
+      key: (req, file, cb) => {
+        const fileName =
+          Date.now() + "_" + file.fieldname + "_" + file.originalname;
+        cb(null, fileName);
+      },
+    });
 
-
-
-  // Set up AWS S3 configuration
-  AWS.config.update({
-    accessKeyId: 'AKIAV24VHNKHWL2HXASX',
-    secretAccessKey: '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',
-    region:'us-east-1',
-  });
-
-  // Create an S3 instance
-  const s3 = new AWS.S3();
-
-  // Define the S3 bucket and a unique key for the image
-  const bucketName = "s3-nodejs-12345";
-  const key = "./uploads"; // Replace with your desired S3 path
-
-  // Read the image file from your local directory
-  const filePath = path.join(__dirname, "image1.jpg");
-  const fileContent = fs.readFileSync(filePath);
-
-  // Set up the parameters for the upload
-  const params = {
-    Bucket: bucketName,
-    Key: key,
-    Body: fileContent,
-  };
-
-  // Upload the image to S3
-  s3.upload(params, (err, data) => {
-    if (err) {
-      console.error("Error uploading image to S3:", err);
-    } else {
-      
-      console.log("Image uploaded to S3 successfully. S3 URL:", data.Location);
-    }
-  });
-
-  // const upload =  multer({
-  //   storage: multer.diskStorage({
-  //     destination:(req,res,cb)=>{
-  //       cb(null, 'uploads')
-  //     },
-  //     filename: (req,file,cb)=>{
-  //       cb(null,file.fieldname + '-' + Date.now()+ '.jpg')
-
-  //     }
-  //   })
-  // }).single('user_file');
-  // console.log('req.file :>> ', req.file);
-
-  // upload(req, res, (err) => {
-  //   console.log('err :>> ', err);
-  //   if (err) {
-  //     res.status(400).send("Something went wrong!");
-  //   }
-  //   console.log('res.send(req.file) :>> ',req.file);
-  //   res.status(200).send("success fully uploaded");
-  // });
-  // res.status(200).json({ message: "file uploaded" });
+    const upload = multer({ storage: s3Storage }).single("user_file");
+    upload(req, res, async (err) => {
+      if (err) {
+        return res.status(400).send({ message: "Something went wrong" });
+      }
+      const imageCreation = new noteImageModel({
+        photoUrl: req.file.location,
+        userId: req.userId,
+      });
+      const uploadImageInMongo = await imageCreation.save();
+      res
+        .status(200)
+        .send({ message: { sucess: true, data: uploadImageInMongo.photoUrl } });
+    });
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
 };
 
 module.exports = { createNote, updateNote, deleteNote, getNotes, uploadImage };
